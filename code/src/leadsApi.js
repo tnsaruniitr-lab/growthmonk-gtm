@@ -1,5 +1,3 @@
-import { config } from './config.js';
-
 const TRANSIENT = new Set([408, 429, 500, 502, 503, 504]);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -10,7 +8,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 // Transient failures retry with backoff; since the cursor only moves on a
 // 200, giving up is recovered by the next scheduled run.
 export async function fetchLeads(client, { overrideSince } = {}) {
-  let url = `${config.leads.apiBase}/api/report/${client.slug}/leads`;
+  let url = `${client.apiBase}/api/report/${client.slug}/leads`;
   if (overrideSince) {
     url += `?override_since=${encodeURIComponent(overrideSince)}`;
   }

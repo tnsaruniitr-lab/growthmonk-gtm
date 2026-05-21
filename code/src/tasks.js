@@ -23,6 +23,8 @@ function parseTaskLine(line) {
     owner: fields.owner || null,
     due: fields.due || null,
     status: fields.status || (done ? 'done' : 'todo'),
+    est: fields.est || null,
+    remarks: fields.remarks || null,
   };
 }
 

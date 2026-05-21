@@ -286,7 +286,10 @@ bot.launch().catch((err) => {
   process.exit(1);
 });
 console.log('GrowthMonk bot launched (long polling)');
-console.log(`leads: ${config.leads.clients.length} client(s), base ${config.leads.apiBase}`);
+console.log(
+  `leads: ${config.leads.clients.length} client(s) — ` +
+    (config.leads.clients.map((c) => `${c.slug}@${c.apiBase}`).join(', ') || 'none')
+);
 
 bot.telegram
   .setMyCommands([

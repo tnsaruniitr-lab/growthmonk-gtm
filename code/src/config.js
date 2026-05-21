@@ -7,6 +7,22 @@ for (const key of required) {
   }
 }
 
+// Builds a leads-API client from env vars with the given suffix
+// ('' for client 1, '_2' for client 2). Returns null if no API key is set.
+function leadsClient(suffix) {
+  const apiKey = process.env[`LEADS_API_KEY${suffix}`];
+  if (!apiKey) return null;
+  return {
+    slug: process.env[`LEADS_API_SLUG${suffix}`] || 'shifahealthcare',
+    name: process.env[`LEADS_CLIENT_NAME${suffix}`] || 'Client',
+    apiKey,
+    apiBase:
+      process.env[`LEADS_API_BASE${suffix}`] ||
+      process.env.LEADS_API_BASE ||
+      'https://growthmonk.ai',
+  };
+}
+
 export const config = {
   telegram: {
     token: process.env.TELEGRAM_BOT_TOKEN,
@@ -35,17 +51,8 @@ export const config = {
     sheetId: process.env.SHEET_ID || null,
   },
   leads: {
-    apiBase: process.env.LEADS_API_BASE || 'https://growthmonk.ai',
     cron: process.env.LEADS_CRON || '0 */2 * * *',
-    clients: process.env.LEADS_API_KEY
-      ? [
-          {
-            slug: process.env.LEADS_API_SLUG || 'shifahealthcare',
-            name: process.env.LEADS_CLIENT_NAME || 'Shifa Healthcare',
-            apiKey: process.env.LEADS_API_KEY,
-          },
-        ]
-      : [],
+    clients: [leadsClient(''), leadsClient('_2')].filter(Boolean),
   },
   port: parseInt(process.env.PORT || '3000', 10),
 };
