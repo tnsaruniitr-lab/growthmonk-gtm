@@ -40,7 +40,7 @@ export const config = {
     clients: process.env.LEADS_API_KEY
       ? [
           {
-            slug: process.env.LEADS_SLUG || 'shifahealthcare',
+            slug: process.env.LEADS_API_SLUG || 'shifahealthcare',
             name: process.env.LEADS_CLIENT_NAME || 'Shifa Healthcare',
             apiKey: process.env.LEADS_API_KEY,
           },
