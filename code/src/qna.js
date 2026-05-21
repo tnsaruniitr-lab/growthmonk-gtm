@@ -11,7 +11,11 @@ const SYSTEM = `You are the GrowthMonk GTM assistant. GrowthMonk sells AEO/SEO a
 multichannel lead-management services to aesthetic clinics. Answer questions about
 the team's sales pipeline, marketing content and weekly tasks using ONLY the
 context provided. Be concise and concrete. If the context does not contain the
-answer, say so plainly rather than guessing.`;
+answer, say so plainly rather than guessing.
+
+Vocabulary: a "prospect" is a clinic GrowthMonk is selling to — these are in the
+context below. A "lead" means a client's own inbound contact and is NOT in this
+context; if asked about leads, say they are available via the /leads command.`;
 
 async function gatherContext() {
   const [m, salesT, mktT, prospects] = await Promise.all([
