@@ -1,21 +1,36 @@
 import { marketingMetrics } from './metrics.js';
 import { weekTasks, summarize } from './tasks.js';
 import { readProspects, statusCounts } from './sheets.js';
+import { esc } from './format.js';
+
+const FUNNEL_EMOJI = {
+  'Not contacted': '⬜',
+  Mailed: '✉️',
+  Responded: '💬',
+  Booked: '✅',
+  Dead: '⚫',
+};
+
+// A 10-cell text progress bar.
+function bar(pct) {
+  const filled = Math.round((Math.max(0, Math.min(100, pct)) / 100) * 10);
+  return '▓'.repeat(filled) + '░'.repeat(10 - filled);
+}
 
 export async function dailyDigest() {
   const funnel = statusCounts(await readProspects());
   const m = await marketingMetrics();
   const salesLine = funnel.byStatus
-    .map((x) => `${x.status}: ${x.count}`)
-    .join('  ·  ');
+    .map((x) => `${FUNNEL_EMOJI[x.status] || '•'} ${x.count} ${x.status.toLowerCase()}`)
+    .join('   ');
   return [
-    `📊 *Daily digest* — ${new Date().toISOString().slice(0, 10)}`,
-    ``,
-    `*Sales pipeline (${funnel.total})*`,
-    `• ${salesLine}`,
-    ``,
-    `*Marketing (content)*`,
-    `• Total: ${m.total}  ·  Draft: ${m.draft}  ·  Scheduled: ${m.scheduled}  ·  Published: ${m.published}`,
+    `📊 <b>Daily Digest</b> · ${new Date().toISOString().slice(0, 10)}`,
+    '',
+    `💼 <b>Sales pipeline</b> · ${funnel.total} prospects`,
+    `   ${salesLine}`,
+    '',
+    `📣 <b>Marketing</b> · ${m.total} content items`,
+    `   💡 ${m.ideas} ideas   ✏️ ${m.draft} draft   📅 ${m.scheduled} scheduled   🚀 ${m.published} published`,
   ].join('\n');
 }
 
@@ -25,16 +40,18 @@ export async function weeklyReview() {
   const ss = summarize(sales.tasks);
   const ms = summarize(mkt.tasks);
   const lines = [
-    `🗓 *Weekly review* — ${sales.week}`,
-    ``,
-    `*Sales tasks:* ${ss.done}/${ss.total} done (${ss.completion}%)`,
-    `*Marketing tasks:* ${ms.done}/${ms.total} done (${ms.completion}%)`,
+    `🗓 <b>Weekly Review</b> · ${sales.week}`,
+    '',
+    `💼 <b>Sales tasks</b>`,
+    `   ${bar(ss.completion)}  ${ss.done}/${ss.total} (${ss.completion}%)`,
+    `📣 <b>Marketing tasks</b>`,
+    `   ${bar(ms.completion)}  ${ms.done}/${ms.total} (${ms.completion}%)`,
   ];
   const overdue = [...ss.overdue, ...ms.overdue];
   if (overdue.length) {
-    lines.push('', `⚠️ *Overdue (${overdue.length})*`);
+    lines.push('', `⚠️ <b>Overdue (${overdue.length})</b>`);
     for (const t of overdue.slice(0, 10)) {
-      lines.push(`• ${t.title} (due ${t.due})`);
+      lines.push(`• ${esc(t.title)} <i>(due ${esc(t.due)})</i>`);
     }
   }
   return lines.join('\n');

@@ -1,0 +1,7 @@
+// Escapes text for Telegram's HTML parse mode.
+export function esc(s) {
+  return String(s ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}

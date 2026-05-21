@@ -7,56 +7,76 @@ import { dailyDigest, weeklyReview } from './reports.js';
 import { answer } from './qna.js';
 import { recentInboundTagged, recentOutboundTagged } from './gmail.js';
 import { fetchLeads } from './leadsApi.js';
+import { esc } from './format.js';
 
 const bot = new Telegraf(config.telegram.token);
 
+const CHANNEL_EMOJI = {
+  instagram: '📷',
+  facebook: '📘',
+  whatsapp: '💬',
+  direct: '✉️',
+  unknown: '❓',
+};
+
+const LEAD_STATUS_EMOJI = {
+  new: '🆕',
+  qualified: '👍',
+  callback_booked: '📞',
+  appointment_booked: '✅',
+  escalated: '🔺',
+  needs_human: '🙋',
+  closed: '⚪',
+};
+
+const cap = (s) => String(s).charAt(0).toUpperCase() + String(s).slice(1);
+
 function sendToGroup(text) {
-  const extra = { parse_mode: 'Markdown' };
+  const extra = { parse_mode: 'HTML' };
   if (config.telegram.reportsTopicId) {
     extra.message_thread_id = Number(config.telegram.reportsTopicId);
   }
   return bot.telegram.sendMessage(config.telegram.groupId, text, extra);
 }
 
-const stripMd = (s) => String(s).replace(/[*_`[\]]/g, '');
-
-// Formats one section (inbound or outbound) — prospects starred and first.
+// Formats one email section (inbound or outbound) — prospects starred, first.
 function formatSection(emoji, label, messages) {
   const prospects = messages.filter((m) => m.prospect);
   const others = messages.filter((m) => !m.prospect);
   const ordered = [...prospects, ...others];
-  const lines = [`${emoji} *${label} (${messages.length})*`];
+  const lines = [`${emoji} <b>${esc(label)}</b> · ${messages.length}`];
   for (const m of ordered.slice(0, 20)) {
-    const who = m.prospect
-      ? `${stripMd(m.prospect.business)} (prospect)`
-      : stripMd(m.contact);
-    lines.push(`${m.prospect ? '⭐' : '•'} ${who} — ${stripMd(m.subject)}`);
+    const mark = m.prospect ? '⭐' : '•';
+    const who = m.prospect ? m.prospect.business : m.contact;
+    lines.push(`${mark} <b>${esc(who)}</b> — ${esc(m.subject)}`);
   }
-  if (ordered.length > 20) lines.push(`…and ${ordered.length - 20} more`);
+  if (ordered.length > 20) lines.push(`<i>…and ${ordered.length - 20} more</i>`);
   return lines.join('\n');
 }
 
 // Formats a GrowthMonk leads-API payload into a digest.
 function formatLeadsDigest(client, data, label) {
   const s = data.summary || {};
-  const lines = [`🔔 *${label} — ${stripMd(client.name)} (${s.total || 0})*`];
-  const channels = Object.entries(s.by_channel || {})
-    .map(([k, v]) => `${k} ${v}`)
-    .join(' · ');
-  if (channels) lines.push(channels);
-  lines.push(
-    `High intent ${s.high_intent || 0} · Booked ${s.booked || 0} · ` +
-      `Appointments ${s.appointments_raised || 0} · Not replied ${s.not_replied || 0}`
-  );
+  const lines = [
+    `🔔 <b>${esc(label)}</b> · ${esc(client.name)}`,
+    '',
+    `📊 ${s.total || 0} new   🔥 ${s.high_intent || 0} high-intent   ` +
+      `📅 ${s.booked || 0} booked   ⏳ ${s.not_replied || 0} not replied`,
+  ];
+  const channelLine = Object.entries(s.by_channel || {})
+    .map(([k, v]) => `${CHANNEL_EMOJI[k] || '❓'} ${esc(cap(k))} ${v}`)
+    .join('   ');
+  if (channelLine) lines.push(channelLine);
   const leads = data.leads || [];
-  for (const lead of leads.slice(0, 20)) {
-    const bits = [lead.name, lead.channel, lead.status, lead.notes]
-      .filter(Boolean)
-      .map(stripMd)
-      .join(' — ');
-    lines.push(`• ${bits}`);
+  if (leads.length) {
+    lines.push('──────────────');
+    for (const lead of leads.slice(0, 20)) {
+      const mark = LEAD_STATUS_EMOJI[lead.status] || '•';
+      const detail = [lead.channel, lead.notes].filter(Boolean).map(esc).join(' · ');
+      lines.push(`${mark} <b>${esc(lead.name || 'Unknown')}</b> · ${detail}`);
+    }
+    if (leads.length > 20) lines.push(`<i>…and ${leads.length - 20} more</i>`);
   }
-  if (leads.length > 20) lines.push(`…and ${leads.length - 20} more`);
   return lines.join('\n');
 }
 
@@ -68,11 +88,11 @@ bot.start((ctx) =>
 );
 
 bot.command('report', async (ctx) => {
-  await ctx.reply(await dailyDigest(), { parse_mode: 'Markdown' });
+  await ctx.reply(await dailyDigest(), { parse_mode: 'HTML' });
 });
 
 bot.command('week', async (ctx) => {
-  await ctx.reply(await weeklyReview(), { parse_mode: 'Markdown' });
+  await ctx.reply(await weeklyReview(), { parse_mode: 'HTML' });
 });
 
 bot.command('inbox', async (ctx) => {
@@ -81,7 +101,7 @@ bot.command('inbox', async (ctx) => {
     await ctx.reply('No inbound email in the recent window.');
     return;
   }
-  await ctx.reply(formatSection('📥', 'Inbound', messages), { parse_mode: 'Markdown' });
+  await ctx.reply(formatSection('📥', 'Inbound', messages), { parse_mode: 'HTML' });
 });
 
 bot.command('outbox', async (ctx) => {
@@ -90,7 +110,7 @@ bot.command('outbox', async (ctx) => {
     await ctx.reply('No outbound email in the recent window.');
     return;
   }
-  await ctx.reply(formatSection('📤', 'Outbound', messages), { parse_mode: 'Markdown' });
+  await ctx.reply(formatSection('📤', 'Outbound', messages), { parse_mode: 'HTML' });
 });
 
 bot.command('leads', async (ctx) => {
@@ -111,8 +131,8 @@ bot.command('leads', async (ctx) => {
       await ctx.reply(`${client.name}: no leads in the last 24h.`);
       continue;
     }
-    await ctx.reply(formatLeadsDigest(client, result.data, 'Leads — last 24h'), {
-      parse_mode: 'Markdown',
+    await ctx.reply(formatLeadsDigest(client, result.data, 'Leads · last 24h'), {
+      parse_mode: 'HTML',
     });
   }
 });
@@ -181,7 +201,9 @@ cron.schedule(
         if (!result.ok) {
           console.error(`leads fetch failed (${client.slug}):`, result.error, result.url);
           if (result.fatal) {
-            await sendToGroup(`⚠️ Leads API error — ${client.name}: ${result.error}`);
+            await sendToGroup(
+              `⚠️ <b>Leads API error</b> — ${esc(client.name)}: ${esc(result.error)}`
+            );
           }
           continue;
         }
