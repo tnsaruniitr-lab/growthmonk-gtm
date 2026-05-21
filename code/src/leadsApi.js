@@ -19,15 +19,15 @@ export async function fetchLeads(client, { overrideSince } = {}) {
     try {
       const res = await fetch(url, { headers: { 'x-api-key': client.apiKey } });
       if (res.status === 200) return { ok: true, data: await res.json() };
-      if (res.status === 401) return { ok: false, fatal: true, error: 'invalid API key (401)' };
-      if (res.status === 404) return { ok: false, fatal: true, error: 'unknown slug (404)' };
-      if (res.status === 400) return { ok: false, fatal: true, error: 'bad override_since (400)' };
+      if (res.status === 401) return { ok: false, fatal: true, error: 'invalid API key (401)', url };
+      if (res.status === 404) return { ok: false, fatal: true, error: 'unknown slug (404)', url };
+      if (res.status === 400) return { ok: false, fatal: true, error: 'bad override_since (400)', url };
       lastError = `HTTP ${res.status}`;
-      if (!TRANSIENT.has(res.status)) return { ok: false, error: lastError };
+      if (!TRANSIENT.has(res.status)) return { ok: false, error: lastError, url };
     } catch (err) {
       lastError = err.message;
     }
     if (attempt < 3) await sleep(2000 * 2 ** (attempt - 1));
   }
-  return { ok: false, error: lastError };
+  return { ok: false, error: lastError, url };
 }

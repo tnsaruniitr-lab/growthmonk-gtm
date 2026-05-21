@@ -104,7 +104,7 @@ bot.command('leads', async (ctx) => {
   for (const client of config.leads.clients) {
     const result = await fetchLeads(client, { overrideSince: since });
     if (!result.ok) {
-      await ctx.reply(`⚠️ ${client.name}: ${result.error}`);
+      await ctx.reply(`⚠️ ${client.name}: ${result.error}\nURL: ${result.url}`);
       continue;
     }
     if (!result.data.summary?.total) {
@@ -179,7 +179,7 @@ cron.schedule(
       try {
         const result = await fetchLeads(client);
         if (!result.ok) {
-          console.error(`leads fetch failed (${client.slug}):`, result.error);
+          console.error(`leads fetch failed (${client.slug}):`, result.error, result.url);
           if (result.fatal) {
             await sendToGroup(`⚠️ Leads API error — ${client.name}: ${result.error}`);
           }
@@ -208,6 +208,7 @@ bot.launch().catch((err) => {
   process.exit(1);
 });
 console.log('GrowthMonk bot launched (long polling)');
+console.log(`leads: ${config.leads.clients.length} client(s), base ${config.leads.apiBase}`);
 
 process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));
