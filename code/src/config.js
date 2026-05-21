@@ -23,6 +23,12 @@ function leadsClient(suffix) {
   };
 }
 
+// Up to 10 leads clients: LEADS_* (client 1) and LEADS_*_2 … LEADS_*_10.
+function leadsClients() {
+  const suffixes = ['', ...Array.from({ length: 9 }, (_, i) => `_${i + 2}`)];
+  return suffixes.map(leadsClient).filter(Boolean);
+}
+
 export const config = {
   telegram: {
     token: process.env.TELEGRAM_BOT_TOKEN,
@@ -52,7 +58,7 @@ export const config = {
   },
   leads: {
     cron: process.env.LEADS_CRON || '0 */2 * * *',
-    clients: [leadsClient(''), leadsClient('_2')].filter(Boolean),
+    clients: leadsClients(),
   },
   port: parseInt(process.env.PORT || '3000', 10),
 };

@@ -119,7 +119,7 @@ const ABOUT = [
   '/week — weekly task progress (sales &amp; marketing)',
   '/inbox — recent received emails (prospects starred)',
   '/outbox — recent sent emails',
-  '/leads — leads from the last 24 hours',
+  '/leads — last-24h leads (all brands; or /leads_brand for one)',
   '/about — this guide',
   '',
   '<b>💬 Ask anything</b>',
@@ -169,15 +169,18 @@ bot.command('outbox', async (ctx) => {
   await ctx.reply(formatSection('📤', 'Outbound', messages), { parse_mode: 'HTML' });
 });
 
-bot.command('leads', async (ctx) => {
-  if (!config.leads.clients.length) {
+const leadsCommand = (slug) =>
+  `leads_${String(slug).toLowerCase().replace(/[^a-z0-9_]/g, '')}`;
+
+async function replyLeads(ctx, clients) {
+  if (!clients.length) {
     await ctx.reply('Leads API is not configured.');
     return;
   }
   const since = new Date(Date.now() - 24 * 3600 * 1000)
     .toISOString()
     .replace(/\.\d{3}Z$/, 'Z');
-  for (const client of config.leads.clients) {
+  for (const client of clients) {
     const result = await fetchLeads(client, { overrideSince: since });
     if (!result.ok) {
       await ctx.reply(`⚠️ ${client.name}: ${result.error}\nURL: ${result.url}`);
@@ -191,7 +194,13 @@ bot.command('leads', async (ctx) => {
       parse_mode: 'HTML',
     });
   }
-});
+}
+
+// /leads = all brands; /leads_<slug> = one brand, auto-registered per client.
+bot.command('leads', (ctx) => replyLeads(ctx, config.leads.clients));
+for (const client of config.leads.clients) {
+  bot.command(leadsCommand(client.slug), (ctx) => replyLeads(ctx, [client]));
+}
 
 bot.on(message('text'), async (ctx) => {
   const question = ctx.message.text;
@@ -298,7 +307,11 @@ bot.telegram
     { command: 'week', description: 'Weekly task progress' },
     { command: 'inbox', description: 'Recent received emails' },
     { command: 'outbox', description: 'Recent sent emails' },
-    { command: 'leads', description: 'Leads from the last 24 hours' },
+    { command: 'leads', description: 'Leads — last 24h, all brands' },
+    ...config.leads.clients.map((c) => ({
+      command: leadsCommand(c.slug),
+      description: `Leads — ${c.name}`,
+    })),
   ])
   .catch((err) => console.error('setMyCommands failed:', err.message));
 
