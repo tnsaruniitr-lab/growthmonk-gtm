@@ -25,6 +25,7 @@ function parseTaskLine(line) {
     status: fields.status || (done ? 'done' : 'todo'),
     est: fields.est || null,
     remarks: fields.remarks || null,
+    link: fields.link || null,
   };
 }
 

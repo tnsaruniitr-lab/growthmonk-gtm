@@ -121,7 +121,9 @@ function formatTasks(label, week, tasks) {
     lines.push('', `<b>${fn}</b>`);
     for (const t of group) {
       const box = t.done ? '✅' : '☐';
-      const meta = [t.owner, t.due && `due ${t.due}`].filter(Boolean).join(' · ');
+      const meta = [t.owner, t.due && `due ${t.due}`, t.link]
+        .filter(Boolean)
+        .join(' · ');
       lines.push(`${box} ${esc(t.title)}${meta ? ` · ${esc(meta)}` : ''}`);
     }
   }
