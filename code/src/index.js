@@ -41,6 +41,19 @@ const CHANNEL_NAME = {
 
 const channelLabel = (ch) => CHANNEL_NAME[ch] || cap(ch || 'unknown');
 
+// Legacy leads were stored as "direct"; treat it as WhatsApp.
+const normalizeChannel = (ch) => (ch === 'direct' ? 'whatsapp' : ch || 'unknown');
+
+// Merges a by-channel count map after normalising channel keys.
+function mergeChannels(byChannel) {
+  const out = {};
+  for (const [ch, count] of Object.entries(byChannel || {})) {
+    const key = normalizeChannel(ch);
+    out[key] = (out[key] || 0) + count;
+  }
+  return out;
+}
+
 function sendToGroup(text) {
   const extra = { parse_mode: 'HTML' };
   if (config.telegram.reportsTopicId) {
@@ -73,7 +86,7 @@ function formatLeadsDigest(client, data, label) {
     `📊 ${s.total || 0} new   🔥 ${s.high_intent || 0} high-intent   ` +
       `📅 ${s.booked || 0} booked   ⏳ ${s.not_replied || 0} not replied`,
   ];
-  const channelLine = Object.entries(s.by_channel || {})
+  const channelLine = Object.entries(mergeChannels(s.by_channel))
     .map(([k, v]) => `${CHANNEL_EMOJI[k] || '❓'} ${esc(channelLabel(k))} ${v}`)
     .join('   ');
   if (channelLine) lines.push(channelLine);
@@ -87,7 +100,7 @@ function formatLeadsDigest(client, data, label) {
       const detail = extra.length ? extra.join(' · ') : '(not yet engaged)';
       lines.push(
         `${mark} <b>${esc(lead.name || 'Unknown')}</b> · ` +
-          `${esc(channelLabel(lead.channel))} · ${esc(detail)}`
+          `${esc(channelLabel(normalizeChannel(lead.channel)))} · ${esc(detail)}`
       );
     }
     if (leads.length > 20) lines.push(`<i>…and ${leads.length - 20} more</i>`);
