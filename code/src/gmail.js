@@ -2,19 +2,20 @@ import { google } from 'googleapis';
 import { googleClient } from './google.js';
 import { readProspects } from './sheets.js';
 
-function extractEmail(fromHeader) {
-  const m = fromHeader.match(/<([^>]+)>/);
-  return (m ? m[1] : fromHeader).trim().toLowerCase();
+function extractEmail(header) {
+  const m = header.match(/<([^>]+)>/);
+  return (m ? m[1] : header).trim().toLowerCase();
 }
 
-// Display name from a From header ("Name <email>"), or the email itself.
-function senderName(fromHeader) {
-  const m = fromHeader.match(/^\s*"?([^"<]+?)"?\s*</);
-  return (m ? m[1] : fromHeader).trim();
+// Display name from an address header ("Name <email>"), or the email itself.
+function displayName(header) {
+  const m = header.match(/^\s*"?([^"<]+?)"?\s*</);
+  return (m ? m[1] : header).trim();
 }
 
-// Inbox messages received within the last `hours` hours.
-async function recentInbound(hours) {
+// Messages in `box` ('inbox' | 'sent') from the last `hours` hours.
+// `party` is the address header to read: 'From' for inbox, 'To' for sent.
+async function recentMessages(box, party, hours) {
   const auth = googleClient();
   if (!auth) return [];
   try {
@@ -22,7 +23,7 @@ async function recentInbound(hours) {
     const after = Math.floor(Date.now() / 1000) - hours * 3600;
     const list = await gmail.users.messages.list({
       userId: 'me',
-      q: `in:inbox after:${after}`,
+      q: `in:${box} after:${after}`,
       maxResults: 50,
     });
     const messages = [];
@@ -31,41 +32,43 @@ async function recentInbound(hours) {
         userId: 'me',
         id,
         format: 'metadata',
-        metadataHeaders: ['From', 'Subject'],
+        metadataHeaders: [party, 'Subject'],
       });
       const headers = {};
       for (const h of msg.data.payload?.headers || []) {
         headers[h.name.toLowerCase()] = h.value;
       }
-      const from = headers.from || '';
+      const who = headers[party.toLowerCase()] || '';
       messages.push({
         id,
-        sender: senderName(from),
-        email: extractEmail(from),
+        contact: displayName(who),
+        email: extractEmail(who),
         subject: headers.subject || '(no subject)',
       });
     }
     return messages;
   } catch (err) {
-    console.error('gmail.recentInbound failed:', err.message);
+    console.error(`gmail.recentMessages(${box}) failed:`, err.message);
     return [];
   }
 }
 
-// All inbound from the last `hours` hours, each tagged with the matching
-// prospect if the sender's email is a known prospect.
-// Returns [] if Gmail/Sheets aren't ready.
-export async function recentInboundTagged(hours) {
-  const [messages, prospects] = await Promise.all([
-    recentInbound(hours),
-    readProspects(),
-  ]);
+async function tagWithProspects(messages) {
+  const prospects = await readProspects();
   const byEmail = new Map();
   for (const p of prospects) {
     if (p.email) byEmail.set(p.email.trim().toLowerCase(), p);
   }
-  return messages.map((msg) => ({
-    ...msg,
-    prospect: byEmail.get(msg.email) || null,
-  }));
+  return messages.map((m) => ({ ...m, prospect: byEmail.get(m.email) || null }));
+}
+
+// Inbound mail from the last `hours` hours, tagged with matching prospects.
+export async function recentInboundTagged(hours) {
+  return tagWithProspects(await recentMessages('inbox', 'From', hours));
+}
+
+// Sent mail from the last `hours` hours, tagged with matching prospects
+// (matched by recipient address).
+export async function recentOutboundTagged(hours) {
+  return tagWithProspects(await recentMessages('sent', 'To', hours));
 }

@@ -5,7 +5,7 @@ import cron from 'node-cron';
 import { config } from './config.js';
 import { dailyDigest, weeklyReview } from './reports.js';
 import { answer } from './qna.js';
-import { recentInboundTagged } from './gmail.js';
+import { recentInboundTagged, recentOutboundTagged } from './gmail.js';
 
 const bot = new Telegraf(config.telegram.token);
 
@@ -19,16 +19,16 @@ function sendToGroup(text) {
 
 const stripMd = (s) => String(s).replace(/[*_`[\]]/g, '');
 
-// Formats tagged inbound messages — prospects starred and listed first.
-function formatInbound(messages) {
+// Formats one section (inbound or outbound) — prospects starred and first.
+function formatSection(emoji, label, messages) {
   const prospects = messages.filter((m) => m.prospect);
   const others = messages.filter((m) => !m.prospect);
   const ordered = [...prospects, ...others];
-  const lines = [`📥 *New inbound (${messages.length})*`];
+  const lines = [`${emoji} *${label} (${messages.length})*`];
   for (const m of ordered.slice(0, 20)) {
     const who = m.prospect
       ? `${stripMd(m.prospect.business)} (prospect)`
-      : stripMd(m.sender);
+      : stripMd(m.contact);
     lines.push(`${m.prospect ? '⭐' : '•'} ${who} — ${stripMd(m.subject)}`);
   }
   if (ordered.length > 20) lines.push(`…and ${ordered.length - 20} more`);
@@ -38,7 +38,7 @@ function formatInbound(messages) {
 bot.start((ctx) =>
   ctx.reply(
     "GrowthMonk bot is online. Ask about sales, marketing or this week's tasks. " +
-      'Use /report, /week or /inbox for instant summaries.'
+      'Use /report, /week, /inbox or /outbox for instant summaries.'
   )
 );
 
@@ -51,12 +51,21 @@ bot.command('week', async (ctx) => {
 });
 
 bot.command('inbox', async (ctx) => {
-  const messages = await recentInboundTagged(config.schedule.inboundWindowHours);
+  const messages = await recentInboundTagged(config.schedule.emailWindowHours);
   if (!messages.length) {
     await ctx.reply('No inbound email in the recent window.');
     return;
   }
-  await ctx.reply(formatInbound(messages), { parse_mode: 'Markdown' });
+  await ctx.reply(formatSection('📥', 'Inbound', messages), { parse_mode: 'Markdown' });
+});
+
+bot.command('outbox', async (ctx) => {
+  const messages = await recentOutboundTagged(config.schedule.emailWindowHours);
+  if (!messages.length) {
+    await ctx.reply('No outbound email in the recent window.');
+    return;
+  }
+  await ctx.reply(formatSection('📤', 'Outbound', messages), { parse_mode: 'Markdown' });
 });
 
 bot.on(message('text'), async (ctx) => {
@@ -88,19 +97,26 @@ function scheduleReport(expr, build) {
 scheduleReport(config.schedule.daily, dailyDigest);
 scheduleReport(config.schedule.weekly, weeklyReview);
 
-// Inbound digest: every couple of hours, post the emails not yet reported.
-const seenInbound = new Set();
+// Email digest: every couple of hours, post inbound + outbound not yet reported.
+const seenMessages = new Set();
 cron.schedule(
-  config.schedule.inboundCron,
+  config.schedule.emailCron,
   async () => {
     try {
-      const messages = await recentInboundTagged(config.schedule.inboundWindowHours);
-      const fresh = messages.filter((m) => !seenInbound.has(m.id));
-      if (!fresh.length) return;
-      for (const m of fresh) seenInbound.add(m.id);
-      await sendToGroup(formatInbound(fresh));
+      const [inbound, outbound] = await Promise.all([
+        recentInboundTagged(config.schedule.emailWindowHours),
+        recentOutboundTagged(config.schedule.emailWindowHours),
+      ]);
+      const freshIn = inbound.filter((m) => !seenMessages.has(m.id));
+      const freshOut = outbound.filter((m) => !seenMessages.has(m.id));
+      if (!freshIn.length && !freshOut.length) return;
+      for (const m of [...freshIn, ...freshOut]) seenMessages.add(m.id);
+      const parts = [];
+      if (freshIn.length) parts.push(formatSection('📥', 'Inbound', freshIn));
+      if (freshOut.length) parts.push(formatSection('📤', 'Outbound', freshOut));
+      await sendToGroup(parts.join('\n\n'));
     } catch (err) {
-      console.error('inbound digest failed:', err.message);
+      console.error('email digest failed:', err.message);
     }
   },
   { timezone: config.schedule.timezone }
