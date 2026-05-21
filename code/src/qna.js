@@ -1,9 +1,9 @@
 import OpenAI from 'openai';
 import { config } from './config.js';
-import { salesMetrics, marketingMetrics } from './metrics.js';
+import { marketingMetrics } from './metrics.js';
 import { weekTasks } from './tasks.js';
 import { currentWeekId } from './repo.js';
-import { readProspects } from './sheets.js';
+import { readProspects, statusCounts } from './sheets.js';
 
 const client = new OpenAI({ apiKey: config.openai.apiKey });
 
@@ -14,20 +14,20 @@ context provided. Be concise and concrete. If the context does not contain the
 answer, say so plainly rather than guessing.`;
 
 async function gatherContext() {
-  const [s, m, salesT, mktT, prospects] = await Promise.all([
-    salesMetrics(),
+  const [m, salesT, mktT, prospects] = await Promise.all([
     marketingMetrics(),
     weekTasks('sales'),
     weekTasks('marketing'),
     readProspects(),
   ]);
+  const funnel = statusCounts(prospects);
   return [
     `Current week: ${currentWeekId()}`,
-    `Sales metrics: ${JSON.stringify(s)}`,
+    `Sales pipeline funnel (from the sales sheet): ${JSON.stringify(funnel.byStatus)}; ${funnel.total} prospects total`,
     `Marketing metrics: ${JSON.stringify(m)}`,
     `Sales tasks this week: ${JSON.stringify(salesT.tasks)}`,
     `Marketing tasks this week: ${JSON.stringify(mktT.tasks)}`,
-    `Prospect list (${prospects.length}) from Google Sheet: ${JSON.stringify(prospects)}`,
+    `Prospect list (${prospects.length}) from the sales sheet, each with a status: ${JSON.stringify(prospects)}`,
   ].join('\n');
 }
 

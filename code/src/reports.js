@@ -1,29 +1,22 @@
-import { salesMetrics, marketingMetrics } from './metrics.js';
+import { marketingMetrics } from './metrics.js';
 import { weekTasks, summarize } from './tasks.js';
-import { readProspects, prospectStats } from './sheets.js';
+import { readProspects, statusCounts } from './sheets.js';
 
 export async function dailyDigest() {
-  const s = await salesMetrics();
+  const funnel = statusCounts(await readProspects());
   const m = await marketingMetrics();
-  const ps = prospectStats(await readProspects());
-  const lines = [
+  const salesLine = funnel.byStatus
+    .map((x) => `${x.status}: ${x.count}`)
+    .join('  ·  ');
+  return [
     `📊 *Daily digest* — ${new Date().toISOString().slice(0, 10)}`,
     ``,
-    `*Sales*`,
-    `• Leads: ${s.leads}  ·  Contacted: ${s.contacted}  ·  Replied: ${s.replied}`,
-    `• Calls booked: ${s.callBooked}  ·  Won: ${s.won}  ·  Lost: ${s.lost}`,
+    `*Sales pipeline (${funnel.total})*`,
+    `• ${salesLine}`,
     ``,
     `*Marketing (content)*`,
     `• Total: ${m.total}  ·  Draft: ${m.draft}  ·  Scheduled: ${m.scheduled}  ·  Published: ${m.published}`,
-  ];
-  if (ps.total) {
-    const tiers = Object.entries(ps.byTier)
-      .sort()
-      .map(([t, n]) => `${t}: ${n}`)
-      .join('  ·  ');
-    lines.push('', `*Prospects (Sheet)*`, `• Total: ${ps.total}  ·  ${tiers}`);
-  }
-  return lines.join('\n');
+  ].join('\n');
 }
 
 export async function weeklyReview() {

@@ -2,6 +2,8 @@ import { google } from 'googleapis';
 import { googleClient } from './google.js';
 import { config } from './config.js';
 
+const SALES_STATUSES = ['Not contacted', 'Mailed', 'Responded', 'Booked', 'Dead'];
+
 // Turns a tab's raw rows into prospect objects. Finds the header row by
 // locating a "Business Name" cell, so non-prospect tabs (e.g. a legend)
 // yield nothing.
@@ -20,6 +22,7 @@ function rowsToProspects(values) {
     tier: at('tier'),
     score: at('score (0-5)') !== -1 ? at('score (0-5)') : at('score'),
     email: at('email'),
+    status: at('status'),
   };
   const prospects = [];
   for (const row of values.slice(headerIdx + 1)) {
@@ -33,6 +36,7 @@ function rowsToProspects(values) {
       tier: get(cols.tier),
       score: get(cols.score),
       email: get(cols.email),
+      status: get(cols.status),
     });
   }
   return prospects;
@@ -64,14 +68,17 @@ export async function readProspects() {
   }
 }
 
-export function prospectStats(prospects) {
-  const byTier = {};
-  const byGeo = {};
+// Sales-funnel counts from the sheet's Status column. Blank or unrecognised
+// values are treated as "Not contacted".
+export function statusCounts(prospects) {
+  const tally = Object.fromEntries(SALES_STATUSES.map((s) => [s, 0]));
   for (const p of prospects) {
-    const tier = (p.tier || '?').toUpperCase();
-    byTier[tier] = (byTier[tier] || 0) + 1;
-    const geo = p.geo || '?';
-    byGeo[geo] = (byGeo[geo] || 0) + 1;
+    const raw = (p.status || '').trim();
+    const match = SALES_STATUSES.find((s) => s.toLowerCase() === raw.toLowerCase());
+    tally[match || 'Not contacted'] += 1;
   }
-  return { total: prospects.length, byTier, byGeo };
+  return {
+    total: prospects.length,
+    byStatus: SALES_STATUSES.map((s) => ({ status: s, count: tally[s] })),
+  };
 }

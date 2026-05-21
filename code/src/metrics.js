@@ -13,23 +13,7 @@ function parseCsv(text) {
 
 const status = (row) => (row.status || '').toLowerCase();
 
-// Sales pipeline counts. "Outreach done" = any lead at status >= contacted.
-export async function salesMetrics() {
-  const rows = parseCsv(await fetchFile('pipeline/sales_pipeline.csv'));
-  const contactedOrBeyond = ['contacted', 'replied', 'call_booked', 'won'];
-  const count = (s) => rows.filter((r) => status(r) === s).length;
-  return {
-    leads: rows.length,
-    fresh: count('new'),
-    contacted: rows.filter((r) => contactedOrBeyond.includes(status(r))).length,
-    replied: count('replied'),
-    callBooked: count('call_booked'),
-    won: count('won'),
-    lost: count('lost'),
-  };
-}
-
-// Marketing content-calendar counts.
+// Marketing content-calendar counts (from the repo CSV).
 export async function marketingMetrics() {
   const rows = parseCsv(await fetchFile('content/content_calendar.csv'));
   const count = (s) => rows.filter((r) => status(r) === s).length;
