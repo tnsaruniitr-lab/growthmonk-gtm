@@ -12,9 +12,10 @@ for (const key of required) {
 function leadsClient(suffix) {
   const apiKey = process.env[`LEADS_API_KEY${suffix}`];
   if (!apiKey) return null;
+  const slug = process.env[`LEADS_API_SLUG${suffix}`] || 'shifahealthcare';
   return {
-    slug: process.env[`LEADS_API_SLUG${suffix}`] || 'shifahealthcare',
-    name: process.env[`LEADS_CLIENT_NAME${suffix}`] || 'Client',
+    slug,
+    name: process.env[`LEADS_CLIENT_NAME${suffix}`] || slug,
     apiKey,
     apiBase:
       process.env[`LEADS_API_BASE${suffix}`] ||
