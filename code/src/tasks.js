@@ -26,6 +26,7 @@ function parseTaskLine(line) {
     est: fields.est || null,
     remarks: fields.remarks || null,
     link: fields.link || null,
+    completion: fields.completion || null,
   };
 }
 
