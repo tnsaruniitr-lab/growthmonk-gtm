@@ -3,7 +3,12 @@ import { fetchFile } from './repo.js';
 
 function parseCsv(text) {
   if (!text) return [];
-  return parse(text, { columns: true, skip_empty_lines: true, trim: true });
+  return parse(text, {
+    columns: true,
+    skip_empty_lines: true,
+    trim: true,
+    relax_column_count: true,
+  });
 }
 
 const status = (row) => (row.status || '').toLowerCase();
