@@ -148,8 +148,8 @@ const ABOUT = [
   '/about — this guide',
   '',
   '<b>💬 Ask anything</b>',
-  'Type a plain question and the bot answers from the sheet, tasks and ' +
-    'prospect data — e.g. "how many prospects in Berlin?" or "what is overdue?"',
+  'In a group, @mention the bot or reply to its message to ask. In a ' +
+    'direct chat, just type. It answers from the sheet, tasks and prospects.',
   '',
   '<b>⏰ Automatic updates</b>',
   '• Daily digest — every morning',
@@ -247,8 +247,19 @@ for (const client of config.leads.clients) {
 }
 
 bot.on(message('text'), async (ctx) => {
-  const question = ctx.message.text;
-  if (question.startsWith('/')) return;
+  const text = ctx.message.text;
+  if (text.startsWith('/')) return;
+  // In groups, only answer when directly addressed — not normal chatter.
+  const me = ctx.botInfo?.username || '';
+  const directed =
+    ctx.chat?.type === 'private' ||
+    ctx.message.reply_to_message?.from?.id === ctx.botInfo?.id ||
+    (me && text.toLowerCase().includes(`@${me.toLowerCase()}`));
+  if (!directed) return;
+  const question = me
+    ? text.replace(new RegExp(`@${me}`, 'ig'), '').trim()
+    : text.trim();
+  if (!question) return;
   try {
     await ctx.sendChatAction('typing');
     await ctx.reply(await answer(question));
