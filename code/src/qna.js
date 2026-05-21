@@ -3,6 +3,7 @@ import { config } from './config.js';
 import { salesMetrics, marketingMetrics } from './metrics.js';
 import { weekTasks } from './tasks.js';
 import { currentWeekId } from './repo.js';
+import { readProspects } from './sheets.js';
 
 const client = new OpenAI({ apiKey: config.openai.apiKey });
 
@@ -13,11 +14,12 @@ context provided. Be concise and concrete. If the context does not contain the
 answer, say so plainly rather than guessing.`;
 
 async function gatherContext() {
-  const [s, m, salesT, mktT] = await Promise.all([
+  const [s, m, salesT, mktT, prospects] = await Promise.all([
     salesMetrics(),
     marketingMetrics(),
     weekTasks('sales'),
     weekTasks('marketing'),
+    readProspects(),
   ]);
   return [
     `Current week: ${currentWeekId()}`,
@@ -25,6 +27,7 @@ async function gatherContext() {
     `Marketing metrics: ${JSON.stringify(m)}`,
     `Sales tasks this week: ${JSON.stringify(salesT.tasks)}`,
     `Marketing tasks this week: ${JSON.stringify(mktT.tasks)}`,
+    `Prospect list (${prospects.length}) from Google Sheet: ${JSON.stringify(prospects)}`,
   ].join('\n');
 }
 

@@ -1,10 +1,12 @@
 import { salesMetrics, marketingMetrics } from './metrics.js';
 import { weekTasks, summarize } from './tasks.js';
+import { readProspects, prospectStats } from './sheets.js';
 
 export async function dailyDigest() {
   const s = await salesMetrics();
   const m = await marketingMetrics();
-  return [
+  const ps = prospectStats(await readProspects());
+  const lines = [
     `📊 *Daily digest* — ${new Date().toISOString().slice(0, 10)}`,
     ``,
     `*Sales*`,
@@ -13,7 +15,15 @@ export async function dailyDigest() {
     ``,
     `*Marketing (content)*`,
     `• Total: ${m.total}  ·  Draft: ${m.draft}  ·  Scheduled: ${m.scheduled}  ·  Published: ${m.published}`,
-  ].join('\n');
+  ];
+  if (ps.total) {
+    const tiers = Object.entries(ps.byTier)
+      .sort()
+      .map(([t, n]) => `${t}: ${n}`)
+      .join('  ·  ');
+    lines.push('', `*Prospects (Sheet)*`, `• Total: ${ps.total}  ·  ${tiers}`);
+  }
+  return lines.join('\n');
 }
 
 export async function weeklyReview() {

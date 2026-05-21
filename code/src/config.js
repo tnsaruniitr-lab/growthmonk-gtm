@@ -26,5 +26,11 @@ export const config = {
     daily: process.env.DAILY_CRON || '0 9 * * *',
     weekly: process.env.WEEKLY_CRON || '0 9 * * 1',
   },
+  google: {
+    clientId: process.env.GOOGLE_CLIENT_ID || null,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET || null,
+    refreshToken: process.env.GOOGLE_REFRESH_TOKEN || null,
+    sheetId: process.env.SHEET_ID || null,
+  },
   port: parseInt(process.env.PORT || '3000', 10),
 };
