@@ -68,11 +68,16 @@ http
   })
   .listen(config.port, () => console.log(`health server listening on :${config.port}`));
 
-bot.launch().catch((err) => {
-  console.error('bot launch failed:', err.message);
-  process.exit(1);
-});
-console.log('GrowthMonk bot launched (long polling)');
+// Guard: only launch once
+let launched = false;
+if (!launched) {
+  launched = true;
+  bot.launch().catch((err) => {
+    console.error('bot launch failed:', err.message);
+    process.exit(1);
+  });
+  console.log('GrowthMonk bot launched (long polling)');
+}
 
 process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));
