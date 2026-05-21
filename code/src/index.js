@@ -5,7 +5,7 @@ import cron from 'node-cron';
 import { config } from './config.js';
 import { dailyDigest, weeklyReview } from './reports.js';
 import { answer } from './qna.js';
-import { prospectReplies } from './gmail.js';
+import { recentInboundTagged } from './gmail.js';
 
 const bot = new Telegraf(config.telegram.token);
 
@@ -17,10 +17,28 @@ function sendToGroup(text) {
   return bot.telegram.sendMessage(config.telegram.groupId, text, extra);
 }
 
+const stripMd = (s) => String(s).replace(/[*_`[\]]/g, '');
+
+// Formats tagged inbound messages — prospects starred and listed first.
+function formatInbound(messages) {
+  const prospects = messages.filter((m) => m.prospect);
+  const others = messages.filter((m) => !m.prospect);
+  const ordered = [...prospects, ...others];
+  const lines = [`📥 *New inbound (${messages.length})*`];
+  for (const m of ordered.slice(0, 20)) {
+    const who = m.prospect
+      ? `${stripMd(m.prospect.business)} (prospect)`
+      : stripMd(m.sender);
+    lines.push(`${m.prospect ? '⭐' : '•'} ${who} — ${stripMd(m.subject)}`);
+  }
+  if (ordered.length > 20) lines.push(`…and ${ordered.length - 20} more`);
+  return lines.join('\n');
+}
+
 bot.start((ctx) =>
   ctx.reply(
     "GrowthMonk bot is online. Ask about sales, marketing or this week's tasks. " +
-      'Use /report, /week or /replies for instant summaries.'
+      'Use /report, /week or /inbox for instant summaries.'
   )
 );
 
@@ -32,15 +50,13 @@ bot.command('week', async (ctx) => {
   await ctx.reply(await weeklyReview(), { parse_mode: 'Markdown' });
 });
 
-bot.command('replies', async (ctx) => {
-  const replies = await prospectReplies(config.schedule.replyWindowHours);
-  if (!replies.length) {
-    await ctx.reply('No prospect replies in the recent window.');
+bot.command('inbox', async (ctx) => {
+  const messages = await recentInboundTagged(config.schedule.inboundWindowHours);
+  if (!messages.length) {
+    await ctx.reply('No inbound email in the recent window.');
     return;
   }
-  await ctx.reply(
-    replies.map((r) => `📨 ${r.prospect.business} — ${r.msg.subject}`).join('\n')
-  );
+  await ctx.reply(formatInbound(messages), { parse_mode: 'Markdown' });
 });
 
 bot.on(message('text'), async (ctx) => {
@@ -72,25 +88,19 @@ function scheduleReport(expr, build) {
 scheduleReport(config.schedule.daily, dailyDigest);
 scheduleReport(config.schedule.weekly, weeklyReview);
 
-const pingedReplies = new Set();
-const stripMd = (s) => String(s).replace(/[*_`[\]]/g, '');
-
+// Inbound digest: every couple of hours, post the emails not yet reported.
+const seenInbound = new Set();
 cron.schedule(
-  config.schedule.replyCron,
+  config.schedule.inboundCron,
   async () => {
     try {
-      const replies = await prospectReplies(config.schedule.replyWindowHours);
-      for (const { prospect, msg } of replies) {
-        if (pingedReplies.has(msg.id)) continue;
-        pingedReplies.add(msg.id);
-        await sendToGroup(
-          `📨 *Reply from ${stripMd(prospect.business)}*\n` +
-            `${stripMd(prospect.email)}\n` +
-            `Subject: ${stripMd(msg.subject)}\n${stripMd(msg.snippet)}`
-        );
-      }
+      const messages = await recentInboundTagged(config.schedule.inboundWindowHours);
+      const fresh = messages.filter((m) => !seenInbound.has(m.id));
+      if (!fresh.length) return;
+      for (const m of fresh) seenInbound.add(m.id);
+      await sendToGroup(formatInbound(fresh));
     } catch (err) {
-      console.error('reply check failed:', err.message);
+      console.error('inbound digest failed:', err.message);
     }
   },
   { timezone: config.schedule.timezone }

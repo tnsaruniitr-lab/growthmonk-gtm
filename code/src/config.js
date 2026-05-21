@@ -25,8 +25,8 @@ export const config = {
     timezone: process.env.TIMEZONE || 'Asia/Dubai',
     daily: process.env.DAILY_CRON || '0 9 * * *',
     weekly: process.env.WEEKLY_CRON || '0 9 * * 1',
-    replyCron: process.env.REPLY_CRON || '0 */2 * * *',
-    replyWindowHours: parseInt(process.env.REPLY_WINDOW_HOURS || '3', 10),
+    inboundCron: process.env.INBOUND_CRON || '0 */2 * * *',
+    inboundWindowHours: parseInt(process.env.INBOUND_WINDOW_HOURS || '3', 10),
   },
   google: {
     clientId: process.env.GOOGLE_CLIENT_ID || null,
