@@ -4,6 +4,7 @@ import { message } from 'telegraf/filters';
 import cron from 'node-cron';
 import { config } from './config.js';
 import { dailyDigest, weeklyReview } from './reports.js';
+import { weekTasks } from './tasks.js';
 import { answer } from './qna.js';
 import { recentInboundTagged, recentOutboundTagged } from './gmail.js';
 import { fetchLeads } from './leadsApi.js';
@@ -108,6 +109,25 @@ function formatLeadsDigest(client, data, label) {
   return lines.join('\n');
 }
 
+// Lists tasks (each tagged with .fn), grouped by function.
+function formatTasks(label, week, tasks) {
+  const header = `📋 <b>Tasks · ${esc(label)}</b> · ${esc(week)}`;
+  if (!tasks.length) return `${header}\n\nNo tasks found.`;
+  const done = tasks.filter((t) => t.done).length;
+  const lines = [`${header} — ${done}/${tasks.length} done`];
+  for (const fn of ['Sales', 'Marketing']) {
+    const group = tasks.filter((t) => t.fn === fn);
+    if (!group.length) continue;
+    lines.push('', `<b>${fn}</b>`);
+    for (const t of group) {
+      const box = t.done ? '✅' : '☐';
+      const meta = [t.owner, t.due && `due ${t.due}`].filter(Boolean).join(' · ');
+      lines.push(`${box} ${esc(t.title)}${meta ? ` · ${esc(meta)}` : ''}`);
+    }
+  }
+  return lines.join('\n');
+}
+
 const ABOUT = [
   '🌱 <b>GrowthMonk Ops Bot</b>',
   '',
@@ -117,6 +137,7 @@ const ABOUT = [
   '<b>📋 Commands</b>',
   '/report — daily snapshot: sales pipeline + marketing',
   '/week — weekly task progress (sales &amp; marketing)',
+  '/tasks — task list (all, or by person: /tasks name)',
   '/inbox — recent received emails (prospects starred)',
   '/outbox — recent sent emails',
   '/leads — last-24h leads (all brands; or /leads_brand for one)',
@@ -149,6 +170,25 @@ bot.command('report', async (ctx) => {
 
 bot.command('week', async (ctx) => {
   await ctx.reply(await weeklyReview(), { parse_mode: 'HTML' });
+});
+
+// /tasks = all tasks this week; /tasks <name> = filtered to that owner.
+bot.command('tasks', async (ctx) => {
+  const arg = (ctx.message.text.split(/\s+/)[1] || '').toLowerCase();
+  const [sales, mkt] = await Promise.all([
+    weekTasks('sales'),
+    weekTasks('marketing'),
+  ]);
+  const all = [
+    ...sales.tasks.map((t) => ({ ...t, fn: 'Sales' })),
+    ...mkt.tasks.map((t) => ({ ...t, fn: 'Marketing' })),
+  ];
+  const tasks = arg
+    ? all.filter((t) => (t.owner || '').toLowerCase() === arg)
+    : all;
+  await ctx.reply(formatTasks(arg || 'this week', sales.week, tasks), {
+    parse_mode: 'HTML',
+  });
 });
 
 bot.command('inbox', async (ctx) => {
@@ -305,6 +345,7 @@ bot.telegram
     { command: 'about', description: 'What this bot does + command list' },
     { command: 'report', description: 'Daily sales + marketing digest' },
     { command: 'week', description: 'Weekly task progress' },
+    { command: 'tasks', description: 'Task list (all, or by person: /tasks name)' },
     { command: 'inbox', description: 'Recent received emails' },
     { command: 'outbox', description: 'Recent sent emails' },
     { command: 'leads', description: 'Leads — last 24h, all brands' },
