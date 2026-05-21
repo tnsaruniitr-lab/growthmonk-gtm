@@ -99,9 +99,11 @@ function formatLeadsDigest(client, data, label) {
       // service_requested / city are null until the bot has engaged the lead
       const extra = [lead.service_requested, lead.city].filter(Boolean);
       const detail = extra.length ? extra.join(' · ') : '(not yet engaged)';
+      const channel = channelLabel(normalizeChannel(lead.channel));
       lines.push(
-        `${mark} <b>${esc(lead.name || 'Unknown')}</b> · ` +
-          `${esc(channelLabel(normalizeChannel(lead.channel)))} · ${esc(detail)}`
+        '',
+        `${mark} <b>${esc(lead.name || 'Unknown')}</b>`,
+        `   ${esc(channel)} · ${esc(detail)}`
       );
     }
     if (leads.length > 20) lines.push(`<i>…and ${leads.length - 20} more</i>`);
