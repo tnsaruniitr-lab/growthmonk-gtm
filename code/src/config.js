@@ -34,5 +34,18 @@ export const config = {
     refreshToken: process.env.GOOGLE_REFRESH_TOKEN || null,
     sheetId: process.env.SHEET_ID || null,
   },
+  leads: {
+    apiBase: process.env.LEADS_API_BASE || 'https://growthmonk.ai',
+    cron: process.env.LEADS_CRON || '0 */2 * * *',
+    clients: process.env.LEADS_API_KEY
+      ? [
+          {
+            slug: process.env.LEADS_SLUG || 'shifahealthcare',
+            name: process.env.LEADS_CLIENT_NAME || 'Shifa Healthcare',
+            apiKey: process.env.LEADS_API_KEY,
+          },
+        ]
+      : [],
+  },
   port: parseInt(process.env.PORT || '3000', 10),
 };
