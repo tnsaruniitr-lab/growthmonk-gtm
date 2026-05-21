@@ -9,6 +9,7 @@ import { answer } from './qna.js';
 import { recentInboundTagged, recentOutboundTagged } from './gmail.js';
 import { fetchLeads } from './leadsApi.js';
 import { esc } from './format.js';
+import { fetchFile } from './repo.js';
 
 const bot = new Telegraf(config.telegram.token);
 
@@ -142,6 +143,7 @@ const ABOUT = [
   '/report — daily snapshot: sales pipeline + marketing',
   '/week — weekly task progress (sales &amp; marketing)',
   '/tasks — task list (all, or by person: /tasks name)',
+  '/demos — demo video links',
   '/inbox — recent received emails (prospects starred)',
   '/outbox — recent sent emails',
   '/leads — last-24h leads (all brands; or /leads_brand for one)',
@@ -191,6 +193,23 @@ bot.command('tasks', async (ctx) => {
     ? all.filter((t) => (t.owner || '').toLowerCase() === arg)
     : all;
   await ctx.reply(formatTasks(arg || 'this week', sales.week, tasks), {
+    parse_mode: 'HTML',
+  });
+});
+
+// /demos = post the Loom links listed in demos.md.
+bot.command('demos', async (ctx) => {
+  const text = await fetchFile('demos.md');
+  const items = (text || '')
+    .split('\n')
+    .map((l) => l.trim())
+    .filter((l) => l.startsWith('- '))
+    .map((l) => `• ${esc(l.slice(2))}`);
+  if (!items.length) {
+    await ctx.reply('No demo links yet — add them to demos.md.');
+    return;
+  }
+  await ctx.reply(`🎬 <b>Demo videos</b>\n\n${items.join('\n')}`, {
     parse_mode: 'HTML',
   });
 });
@@ -361,6 +380,7 @@ bot.telegram
     { command: 'report', description: 'Daily sales + marketing digest' },
     { command: 'week', description: 'Weekly task progress' },
     { command: 'tasks', description: 'Task list (all, or by person: /tasks name)' },
+    { command: 'demos', description: 'Demo video links' },
     { command: 'inbox', description: 'Recent received emails' },
     { command: 'outbox', description: 'Recent sent emails' },
     { command: 'leads', description: 'Leads — last 24h, all brands' },
