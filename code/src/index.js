@@ -109,22 +109,22 @@ function formatLeadsDigest(client, data, label) {
   return lines.join('\n');
 }
 
-// Lists tasks (each tagged with .fn), grouped by function.
+// Lists tasks (each tagged with .fn), grouped by owner with a gap between each.
 function formatTasks(label, week, tasks) {
   const header = `📋 <b>Tasks · ${esc(label)}</b> · ${esc(week)}`;
   if (!tasks.length) return `${header}\n\nNo tasks found.`;
   const done = tasks.filter((t) => t.done).length;
   const lines = [`${header} — ${done}/${tasks.length} done`];
-  for (const fn of ['Sales', 'Marketing']) {
-    const group = tasks.filter((t) => t.fn === fn);
-    if (!group.length) continue;
-    lines.push('', `<b>${fn}</b>`);
-    for (const t of group) {
+  const owners = [...new Set(tasks.map((t) => t.owner || 'unassigned'))].sort();
+  for (const owner of owners) {
+    lines.push('', `👤 <b>${esc(owner)}</b>`);
+    for (const t of tasks.filter((x) => (x.owner || 'unassigned') === owner)) {
       const box = t.done ? '✅' : '☐';
-      const meta = [t.owner, t.due && `due ${t.due}`, t.completion, t.link]
+      const meta = [t.fn, t.due && `due ${t.due}`, t.completion, t.link]
         .filter(Boolean)
         .join(' · ');
-      lines.push(`${box} ${esc(t.title)}${meta ? ` · ${esc(meta)}` : ''}`);
+      lines.push('', `${box} ${esc(t.title)}`);
+      if (meta) lines.push(`   ${esc(meta)}`);
     }
   }
   return lines.join('\n');
