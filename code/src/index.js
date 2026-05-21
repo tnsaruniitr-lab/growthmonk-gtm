@@ -108,12 +108,40 @@ function formatLeadsDigest(client, data, label) {
   return lines.join('\n');
 }
 
+const ABOUT = [
+  '🌱 <b>GrowthMonk Ops Bot</b>',
+  '',
+  "This group is GrowthMonk's go-to-market command centre — sales pipeline, " +
+    'marketing content, weekly tasks, email activity and incoming leads, all in one place.',
+  '',
+  '<b>📋 Commands</b>',
+  '/report — daily snapshot: sales pipeline + marketing',
+  '/week — weekly task progress (sales &amp; marketing)',
+  '/inbox — recent received emails (prospects starred)',
+  '/outbox — recent sent emails',
+  '/leads — leads from the last 24 hours',
+  '/about — this guide',
+  '',
+  '<b>💬 Ask anything</b>',
+  'Type a plain question and the bot answers from the sheet, tasks and ' +
+    'prospect data — e.g. "how many prospects in Berlin?" or "what is overdue?"',
+  '',
+  '<b>⏰ Automatic updates</b>',
+  '• Daily digest — every morning',
+  '• Weekly review — Monday mornings',
+  '• Email digest — every 2 hours (inbound + outbound)',
+  '• New leads — every 2 hours',
+].join('\n');
+
 bot.start((ctx) =>
   ctx.reply(
-    "GrowthMonk bot is online. Ask about sales, marketing or this week's tasks. " +
-      'Use /report, /week, /inbox, /outbox or /leads for instant summaries.'
+    '👋 GrowthMonk Ops Bot is online. Type /about for what this group does and the full command list.'
   )
 );
+
+bot.command('about', async (ctx) => {
+  await ctx.reply(ABOUT, { parse_mode: 'HTML' });
+});
 
 bot.command('report', async (ctx) => {
   await ctx.reply(await dailyDigest(), { parse_mode: 'HTML' });
@@ -259,6 +287,17 @@ bot.launch().catch((err) => {
 });
 console.log('GrowthMonk bot launched (long polling)');
 console.log(`leads: ${config.leads.clients.length} client(s), base ${config.leads.apiBase}`);
+
+bot.telegram
+  .setMyCommands([
+    { command: 'about', description: 'What this bot does + command list' },
+    { command: 'report', description: 'Daily sales + marketing digest' },
+    { command: 'week', description: 'Weekly task progress' },
+    { command: 'inbox', description: 'Recent received emails' },
+    { command: 'outbox', description: 'Recent sent emails' },
+    { command: 'leads', description: 'Leads from the last 24 hours' },
+  ])
+  .catch((err) => console.error('setMyCommands failed:', err.message));
 
 process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));
