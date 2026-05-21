@@ -31,6 +31,16 @@ const LEAD_STATUS_EMOJI = {
 
 const cap = (s) => String(s).charAt(0).toUpperCase() + String(s).slice(1);
 
+const CHANNEL_NAME = {
+  instagram: 'Instagram',
+  facebook: 'Facebook',
+  whatsapp: 'WhatsApp',
+  direct: 'Direct',
+  unknown: 'Unknown',
+};
+
+const channelLabel = (ch) => CHANNEL_NAME[ch] || cap(ch || 'unknown');
+
 function sendToGroup(text) {
   const extra = { parse_mode: 'HTML' };
   if (config.telegram.reportsTopicId) {
@@ -64,7 +74,7 @@ function formatLeadsDigest(client, data, label) {
       `📅 ${s.booked || 0} booked   ⏳ ${s.not_replied || 0} not replied`,
   ];
   const channelLine = Object.entries(s.by_channel || {})
-    .map(([k, v]) => `${CHANNEL_EMOJI[k] || '❓'} ${esc(cap(k))} ${v}`)
+    .map(([k, v]) => `${CHANNEL_EMOJI[k] || '❓'} ${esc(channelLabel(k))} ${v}`)
     .join('   ');
   if (channelLine) lines.push(channelLine);
   const leads = data.leads || [];
@@ -72,8 +82,13 @@ function formatLeadsDigest(client, data, label) {
     lines.push('──────────────');
     for (const lead of leads.slice(0, 20)) {
       const mark = LEAD_STATUS_EMOJI[lead.status] || '•';
-      const detail = [lead.channel, lead.notes].filter(Boolean).map(esc).join(' · ');
-      lines.push(`${mark} <b>${esc(lead.name || 'Unknown')}</b> · ${detail}`);
+      // service_requested / city are null until the bot has engaged the lead
+      const extra = [lead.service_requested, lead.city].filter(Boolean);
+      const detail = extra.length ? extra.join(' · ') : '(not yet engaged)';
+      lines.push(
+        `${mark} <b>${esc(lead.name || 'Unknown')}</b> · ` +
+          `${esc(channelLabel(lead.channel))} · ${esc(detail)}`
+      );
     }
     if (leads.length > 20) lines.push(`<i>…and ${leads.length - 20} more</i>`);
   }
