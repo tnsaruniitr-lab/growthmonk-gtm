@@ -373,6 +373,10 @@ console.log(
   `leads: ${config.leads.clients.length} client(s) — ` +
     (config.leads.clients.map((c) => `${c.slug}@${c.apiBase}`).join(', ') || 'none')
 );
+console.log(
+  `sheets: ${config.google.sheetId || 'SHEET_ID NOT SET'}; ` +
+    `google auth ${config.google.refreshToken && config.google.clientId ? 'configured' : 'MISSING'}`
+);
 
 bot.telegram
   .setMyCommands([
