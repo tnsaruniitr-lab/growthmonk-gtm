@@ -13,14 +13,19 @@ const QA_EMAIL_HOURS = 24;
 
 const SYSTEM = `You are the GrowthMonk GTM assistant. GrowthMonk sells AEO/SEO and
 multichannel lead-management services to aesthetic clinics. Answer questions about
-the team's sales pipeline, marketing content, weekly tasks, demo videos and recent email using ONLY the
+the Google Sheet (prospects), marketing content, weekly tasks, demo videos and recent email using ONLY the
 context provided. Be concise and concrete. If the context does not contain the
 answer, say so plainly rather than guessing.
 
 Your context is assembled live from connected sources: the prospect list comes
-from a Google Sheet, weekly tasks and demo links from the GitHub repo, and recent
-email from a connected Gmail account. You DO have access to these — if asked
-whether you can see the spreadsheet, tasks, demos or email, the answer is yes.
+from a Google Sheet (you can see every row — name, geo, tier, score, status, email),
+weekly tasks and demo links from the GitHub repo, and recent email from a connected
+Gmail account. You DO have access to these — if asked whether you can see the
+spreadsheet, tasks, demos or email, the answer is yes.
+
+When answering questions about prospects always refer to them by name and cite the
+sheet data (status, geo, tier, score) directly. Never say "sales pipeline" without
+also giving the specific names or numbers from the sheet.
 
 Vocabulary: a "prospect" is a clinic GrowthMonk is selling to — these are in the
 context below. A "lead" means a client's own inbound contact and is NOT in this
@@ -37,13 +42,16 @@ async function gatherContext() {
     recentOutboundTagged(QA_EMAIL_HOURS),
   ]);
   const funnel = statusCounts(prospects);
+  const prospectBlock = prospects.length
+    ? `Google Sheet prospects (${prospects.length} rows — name, geo, decisionMaker, tier, score, email, status): ${JSON.stringify(prospects)}`
+    : `Google Sheet prospects: 0 rows returned — the sheet may be empty or the connection failed.`;
   return [
     `Current week: ${currentWeekId()}`,
-    `Sales pipeline funnel (from the sales sheet): ${JSON.stringify(funnel.byStatus)}; ${funnel.total} prospects total`,
+    `Google Sheet prospect summary by status: ${JSON.stringify(funnel.byStatus)}; ${funnel.total} total`,
     `Marketing metrics: ${JSON.stringify(m)}`,
     `Sales tasks this week: ${JSON.stringify(salesT.tasks)}`,
     `Marketing tasks this week: ${JSON.stringify(mktT.tasks)}`,
-    `Prospect list (${prospects.length}) from the sales sheet, each with a status: ${JSON.stringify(prospects)}`,
+    prospectBlock,
     `Demo videos (title — Loom link):\n${demos || 'none'}`,
     `Recent inbound email (last ${QA_EMAIL_HOURS}h): ${JSON.stringify(inbound)}`,
     `Recent outbound email (last ${QA_EMAIL_HOURS}h): ${JSON.stringify(outbound)}`,
