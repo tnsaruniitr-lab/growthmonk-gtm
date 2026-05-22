@@ -53,14 +53,18 @@ export async function readProspects() {
       spreadsheetId: config.google.sheetId,
     });
     const tabs = (meta.data.sheets || []).map((s) => s.properties.title);
+    console.log(`sheets: found ${tabs.length} tab(s): ${tabs.join(', ')}`);
     const prospects = [];
     for (const tab of tabs) {
       const res = await sheets.spreadsheets.values.get({
         spreadsheetId: config.google.sheetId,
         range: `'${tab}'`,
       });
-      prospects.push(...rowsToProspects(res.data.values));
+      const found = rowsToProspects(res.data.values);
+      console.log(`sheets: tab '${tab}' → ${found.length} prospect(s)`);
+      prospects.push(...found);
     }
+    console.log(`sheets: total ${prospects.length} prospect(s)`);
     return prospects;
   } catch (err) {
     console.error('sheets.readProspects failed:', err.message);
